@@ -10,7 +10,7 @@ print("Waiting to allow debugger to attach....")
 time.sleep(1)
 print("Continuing pandas :D")
 
-i2c = I2C()
+i2c = I2C(sda=14, scl=15)
 
 devices = LSM6DS3TR(i2c)
 
