@@ -36,11 +36,12 @@ class LSM6DS3TR():
     A sketchy implementation for talking to an LSM6DS3TR using I2C
     """
 
+    # I think we only need RANGE_2G and _maybe_ 4G but uncomment for others.
     AccelRange = {
-        "RANGE_2G": [0, 2, 0.061],
-        "RANGE_16G": [1, 16, 0.488],
-        "RANGE_4G": [2, 4, 0.122],
-        "RANGE_8G": [3, 8, 0.244],
+        2: [0, 0.061],
+#        16: [1, 0.488],
+        4: [2, 0.122],
+#        8: [3, 0.244],
     }
 
     def __init__(self, I2C_device, i2c_addr=None):
@@ -49,11 +50,12 @@ class LSM6DS3TR():
         print(f"Found devices {i2c_ids}")
         self.device_id = i2c_ids[0] # meh...
         # Setup the range, we use 2G because breaking is rarely above 1G
-        self._cached_accel_range = "RANGE_2G"
-        self.i2c.writeto_mem(self.device_id, 
+        self.set_accel_range("2G")
+        self._ctrl1_xl_value = b''
         return i2c_ids
 
-    def configure_
+    def set_accel_range(_range: int):
+        self.i2c.writeto_mem(self.device_id, _LSM6DS_CTRL1_XL, _range)
 
     def _raw_accel(self):
         return self.i2c.readfrom_mem(self.device_id, _LSM6DS_OUTX_L_A, 2)
