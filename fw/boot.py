@@ -2,8 +2,7 @@ import machine
 import micropython
 import time
 from lsm.lsm6ds import LSM6DS3TRC
-from machine import Pin
-from magici2c import MagicI2C
+from machine import Pin, I2C
 
 micropython.alloc_emergency_exception_buf(200)
 print("Allocated buffer for ISR failure.")
@@ -19,7 +18,7 @@ time.sleep(1)
 print("Sleeeeeeeping some more.")
 
 
-i2c = MagicI2C(sda=Pin(4), scl=Pin(5))
+i2c = I2C(sda=Pin(4), scl=Pin(5))
 
 devices = []
 
