@@ -1,7 +1,9 @@
+import machine
 import micropython
 import time
-from LSM6DS3TR import LSM6DS3TR
-from machine import I2C
+from lsm.lsm6ds import LSM6DS3TRC
+from machine import Pin
+from magici2c import MagicI2C
 
 micropython.alloc_emergency_exception_buf(200)
 print("Allocated buffer for ISR failure.")
@@ -10,10 +12,20 @@ print("Waiting to allow debugger to attach....")
 time.sleep(1)
 print("Continuing pandas :D")
 
-i2c = I2C(sda=14, scl=15)
+time.sleep(1)
+print("Sleeeeeeeping some more.")
 
-devices = LSM6DS3TR(i2c)
+time.sleep(1)
+print("Sleeeeeeeping some more.")
 
-while True:
+
+i2c = MagicI2C(sda=Pin(4), scl=Pin(5))
+
+devices = []
+
+while len(devices) < 1:
+    devices = i2c.scan()
     time.sleep(1)
     print(f"kk!: {devices}")
+
+accel = LSM6DS3TRC(i2c, devices[0])
