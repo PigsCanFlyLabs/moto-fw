@@ -57,8 +57,10 @@ fi
 pushd ./ports/unix
 if ! command -v micropython &> /dev/null; then
   if [ ! -f "micorpython" ]; then
-    make submodules &> submod
-    make &> base || (cat base; exit 1)
+    if [ ! -f "./build-standard/micorpython" ]; then
+      make submodules &> submod
+      make &> base || (cat base; exit 1)
+    fi
   fi
   export PATH="${PATH}:$(pwd):$(pwd)/build-standard/"
 fi
@@ -67,6 +69,7 @@ popd
 if [ ! -d ~/.micropython/lib/ ]; then
   mkdir -p ~/.micropython/lib
   cp -af ./extmod/* ~/.micropython/lib/
+  # TODO: switch to mip once it works.
   micropython -m upip install unittest logging threading typing warnings base64 hmac  
 fi
 # Run some smoke tests
