@@ -2,7 +2,7 @@
 
 source common.sh
 
-MICRO_PYTHON_VERSION=${MICRO_PYTHON_VERSION:-master}
+MICRO_PYTHON_VERSION=${MICRO_PYTHON_VERSION:-main}
 ESP_IDF_VERSION="v4.4.2"
 if [ ! -d "${build_dir}" ]; then
   mkdir "${build_dir}"
@@ -27,33 +27,27 @@ if ! command -v idf.py &> /dev/null; then
   popd
 fi
 
-mkdir -p ./microPython/project
-pushd ./microPython/project
+mkdir -p ./circuitpython/project
+pushd ./circuitpython/project
 
 pwd
-if [ ! -d "micropython" ]; then
-  git clone -b "${MICRO_PYTHON_VERSION}" --recurse-submodules https://github.com/micropython/micropython.git &> clone_logs || (cat clone_logs; exit 1)
+if [ ! -d "circuitpython" ]; then
+  git clone -b "${MICRO_PYTHON_VERSION}" --recurse-submodules git@github.com:adafruit/circuitpython.git &> clone_logs || (cat clone_logs; exit 1)
 fi
-pushd micropython
+pushd circuitpython
 MP_ROOT=$(pwd)
 
 git fetch || echo "No internet, not updating."
 git checkout
 git checkout "${MICRO_PYTHON_VERSION}"
 
-if [ ! -f "${build_dir}/microPython/project/micropython/mpy-cross/mpy-cross" ]; then
-  pushd mpy-cross
-  make
-  if [ -f mpy-cross ]; then
-    cp mpy-cross "${venv_dir}/bin/"
-  elif [ -f build/mpy-cross ]; then
-    cp build/mpy-cross "${venv_dir}/bin/"
-  else
-    echo "Could not find mpy cross?"
-    exit 1
-  fi
-  popd
+pip install -r requirements-dev.txt
+make -C mpy-cross
+
+if ! command -v minipip &> /dev/null; then
+  pip install minipip
 fi
+
 pushd ./ports/unix
 if ! command -v micropython &> /dev/null; then
   if [ ! -f "micorpython" ]; then
