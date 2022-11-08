@@ -227,8 +227,7 @@ class LSM6DS:  # pylint: disable=too-many-instance-attributes
             raise AttributeError("LSM6DS Parent Class cannot be directly instantiated")
         if self._chip_id != self.CHIP_ID:
             raise RuntimeError(
-                "Failed to find %s found %d- check your wiring!" %
-                (self.__class__.__name__, self._chip_id)
+                "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
         self.reset()
         if not hasattr(GyroRange, "string"):
