@@ -6,6 +6,7 @@ freeze(".",
         "magici2c.py",
        ),
 )
+
 package("lsm")
 package("adafruit_bus_device")
 package("adafruit_register")
