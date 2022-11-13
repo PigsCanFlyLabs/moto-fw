@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -ex
-
 source common.sh
 
 MICRO_PYTHON_VERSION=${MICRO_PYTHON_VERSION:-main}
@@ -13,6 +11,11 @@ pushd "${build_dir}"
 
 if ! command -v ninja &> /dev/null; then
   sudo apt-get install -y ninja-build
+fi
+
+# Grab unittest from micropython yeeeah...
+if [ ! -f "circuitpython/project/circuitpython/lib/unittest.py" ]; then
+  cp -af ~/.micropython/lib/* circuitpython/project/circuitpython/lib/
 fi
 
 if [ ! -d "${venv_dir}" ]; then
