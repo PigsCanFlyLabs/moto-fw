@@ -6,10 +6,3 @@
 #define MICROPY_HW_ENABLE_SDCARD            (0)
 #define MICROPY_PY_MACHINE_DAC              (0)
 #define MICROPY_PY_MACHINE_I2S              (0)
-
-// Default bus pins
-#define DEFAULT_UART_BUS_RX         (&pin_GPIO20)
-#define DEFAULT_UART_BUS_TX         (&pin_GPIO21)
-
-#define CIRCUITPY_ESP_USB_SERIAL_JTAG (1)
-

@@ -9,15 +9,6 @@ if [ ! -d "${build_dir}" ]; then
 fi
 pushd "${build_dir}"
 
-if ! command -v ninja &> /dev/null; then
-  sudo apt-get install -y ninja-build
-fi
-
-# Grab unittest from micropython yeeeah...
-if [ ! -f "circuitpython/project/circuitpython/lib/unittest.py" ]; then
-  cp -af ~/.micropython/lib/* circuitpython/project/circuitpython/lib/
-fi
-
 if [ ! -d "${venv_dir}" ]; then
   virtualenv  "${venv_dir}"
 fi
@@ -27,7 +18,6 @@ fi
 if ! command -v idf.py &> /dev/null; then
   if [ ! -d "esp-idf" ]; then
     git clone -b "${ESP_IDF_VERSION}" --recursive https://github.com/espressif/esp-idf.git &> clone_logs || (cat clone_logs; exit 1)
-    git submodule update --init --recursive
   fi
   pushd esp-idf
   if [ ! -d "~/.espressif" ]; then
@@ -42,7 +32,7 @@ pushd ./circuitpython/project
 
 pwd
 if [ ! -d "circuitpython" ]; then
-  git clone -b "${MICRO_PYTHON_VERSION}" --recurse-submodules git@github.com:holdenk/circuitpython.git &> clone_logs || (cat clone_logs; exit 1)
+  git clone -b "${MICRO_PYTHON_VERSION}" --recurse-submodules git@github.com:adafruit/circuitpython.git &> clone_logs || (cat clone_logs; exit 1)
 fi
 pushd circuitpython
 MP_ROOT=$(pwd)
@@ -58,12 +48,17 @@ if ! command -v minipip &> /dev/null; then
   pip install minipip
 fi
 
+pushd ./ports/unix
 if ! command -v micropython &> /dev/null; then
-  make -C mpy-cross
-  pushd ./ports/unix
+  if [ ! -f "micorpython" ]; then
+    if [ ! -f "./build-standard/micorpython" ]; then
+      make submodules &> submod
+      make &> base || (cat base; exit 1)
+    fi
+  fi
   export PATH="${PATH}:$(pwd):$(pwd)/build-standard/"
-  popd
 fi
+popd
 # Make uasyncio available for testing on unix port
 if [ ! -d ~/.micropython/lib/ ]; then
   mkdir -p ~/.micropython/lib
@@ -76,14 +71,16 @@ pushd "${FW_DIR}"
 # flake8 --max-line-length 100 --ignore=Q000 --ignore=W504 --exclude=manifest.py
 micropython -c "import unittest;unittest.main('smoke_test')"
 popd
-pushd "${MP_ROOT}/ports/espressif"
-rm -rf esp-idf
-ln -s "${build_dir}/esp-idf" ./esp-idf
+pushd "${MP_ROOT}/ports/esp32"
+if [ ! -d "esp-idf" ]; then
+  ln -s "${build_dir}/esp-idf" ./esp-idf
+fi
 cp -af "${BOARD_DIR}/"* ./boards || echo "already copied"
+make submodules &> submod
+# make BOARD=GENERIC &> base
 make BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py" clean
-# Only _partail_ support for FROZEN_MANIFEST in circuitpython :'(
-make V=2 BOARD=${BOARD:-MOTOC3} FROZEN_MPY_PY_FILES="${SCRIPT_DIR}/fw/main.py"
-make flash BOARD=MOTOC3 PORT=/dev/ttyACM0
+make USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake" clean
+make BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py"
 # make BOARD=${BOARD:-MOTOC3}
 # USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake"
 pwd
