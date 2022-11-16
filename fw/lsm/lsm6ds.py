@@ -226,8 +226,11 @@ class LSM6DS:  # pylint: disable=too-many-instance-attributes
         if self.CHIP_ID is None:
             raise AttributeError("LSM6DS Parent Class cannot be directly instantiated")
         if self._chip_id != self.CHIP_ID:
-            raise RuntimeError(
-                "Failed to find %s - check your wiring!" % self.__class__.__name__
+            print(
+                "Failed to find %s got %d instead of %d" %
+                (self.__class__.__name__,
+                 self._chip_id,
+                 self.CHIP_ID)
             )
         self.reset()
         if not hasattr(GyroRange, "string"):
@@ -235,10 +238,13 @@ class LSM6DS:  # pylint: disable=too-many-instance-attributes
         self._bdu = True
 
         self._add_accel_ranges()
+        print("Updating rate.")
         self.accelerometer_data_rate = Rate.RATE_104_HZ  # pylint: disable=no-member
         self.gyro_data_rate = Rate.RATE_104_HZ  # pylint: disable=no-member
+        print("Setting range")
 
-        self.accelerometer_range = AccelRange.RANGE_4G  # pylint: disable=no-member
+        self.accelerometer_range = AccelRange.RANGE_2G  # pylint: disable=no-member
+        print("gyro range")
         self.gyro_range = GyroRange.RANGE_250_DPS  # pylint: disable=no-member
         # Load and configure MLC if UCF file is provided
         if ucf is not None:
@@ -248,7 +254,8 @@ class LSM6DS:  # pylint: disable=too-many-instance-attributes
         "Resets the sensor's configuration into an initial state"
         self._sw_reset = True
         while self._sw_reset:
-            sleep(0.001)
+            print("Waaaiting for reset.")
+            sleep(0.000001)
 
     @staticmethod
     def _add_gyro_ranges() -> None:
@@ -310,11 +317,15 @@ class LSM6DS:  # pylint: disable=too-many-instance-attributes
     # pylint: disable=no-member
     @accelerometer_range.setter
     def accelerometer_range(self, value: int) -> None:
-        if not AccelRange.is_valid(value):
-            raise AttributeError("range must be an `AccelRange`")
-        self._accel_range = value
+        print(f"ASked to set accel range to {value} current {self._accel_range}")
+        if value != self._accel_range:
+            if not AccelRange.is_valid(value):
+                raise AttributeError("range must be an `AccelRange`")
+            self._accel_range = value
+            sleep(0.2)  # needed to let new range settle
+        else:
+            print(f"Skipping since it's already set to that.")
         self._cached_accel_range = value
-        sleep(0.2)  # needed to let new range settle
 
     @property
     def gyro_range(self) -> int:

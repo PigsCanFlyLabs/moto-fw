@@ -81,6 +81,29 @@ class I2CDevice:
             end = len(buf)
         self.i2c.readfrom_into(self.device_address, buf, start=start, end=end)
 
+    def readfrom_mem_into(
+            self, memaddr: int, buf: WriteableBuffer
+    ) -> None:
+        """
+        Read into ``buf`` from the device. The number of bytes read will be the
+        length of ``buf``.
+
+        :param ~memaddr int: register on i2c device
+        :param ~WriteableBuffer buffer: buffer to write into
+        """
+        self.i2c.readfrom_mem_into(self.device_address, memaddr, buf)
+
+    def writeto_mem_into(
+            self, memaddr: int, buf: WriteableBuffer
+    ) -> None:
+        """
+        Write ``buf`` to the device.
+
+        :param ~memaddr int: register on i2c device
+        :param ~WriteableBuffer buffer: buffer to write to the device
+        """
+        self.i2c.writeto_mem(self.device_address, memaddr, buf)
+
     def write(
         self, buf: ReadableBuffer, *, start: int = 0, end: Optional[int] = None
     ) -> None:
@@ -98,7 +121,7 @@ class I2CDevice:
         """
         if end is None:
             end = len(buf)
-        self.i2c.writeto(self.device_address, buf, start=start, end=end)
+        self.i2c.writeto(self.device_address, buf[start:end])
 
     # pylint: disable-msg=too-many-arguments
     def write_then_readinto(

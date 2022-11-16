@@ -3,7 +3,7 @@
 source common.sh
 
 MICRO_PYTHON_VERSION=${MICRO_PYTHON_VERSION:-master}
-ESP_IDF_VERSION="v4.4.2"
+ESP_IDF_VERSION="v4.4.3"
 if [ ! -d "${build_dir}" ]; then
   mkdir "${build_dir}"
 fi
@@ -84,9 +84,8 @@ fi
 cp -af "${BOARD_DIR}/"* ./boards || echo "already copied"
 make submodules &> submod
 # make BOARD=GENERIC &> base
-make BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py" clean
-make USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake" clean
-make BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py"
+make -j36 BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py" clean
+make V=2 -j36 BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py"
 # make BOARD=${BOARD:-MOTOC3}
 # USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake"
 pwd

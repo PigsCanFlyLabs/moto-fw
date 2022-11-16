@@ -44,17 +44,15 @@ class RWBits:
         register_address: int,
         lowest_bit: int,
         register_width: int = 1,
-        lsb_first: bool = True,
         signed: bool = False,
     ) -> None:
         self.bit_mask = ((1 << num_bits) - 1) << lowest_bit
-        # print("bitmask: ",hex(self.bit_mask))
+        print("bitmask: ",hex(self.bit_mask))
         if self.bit_mask >= 1 << (register_width * 8):
             raise ValueError("Cannot have more bits than register size")
         self.lowest_bit = lowest_bit
-        self.buffer = bytearray(1 + register_width)
-        self.buffer[0] = register_address
-        self.lsb_first = lsb_first
+        self.buffer = bytearray(register_width)
+        self.register_address = register_address
         self.sign_bit = (1 << (num_bits - 1)) if signed else 0
 
     def __get__(
@@ -63,12 +61,10 @@ class RWBits:
         objtype: Optional[Type[I2CDeviceDriver]] = None,
     ) -> int:
         with obj.i2c_device as i2c:
-            i2c.write_then_readinto(self.buffer, self.buffer, out_end=1, in_start=1)
+            i2c.readfrom_mem_into(self.register_address, self.buffer)
         # read the number of bytes into a single variable
         reg = 0
-        order = range(len(self.buffer) - 1, 0, -1)
-        if not self.lsb_first:
-            order = reversed(order)
+        order = range(len(self.buffer) - 1, -1, -1)
         for i in order:
             reg = (reg << 8) | self.buffer[i]
         reg = (reg & self.bit_mask) >> self.lowest_bit
@@ -80,21 +76,19 @@ class RWBits:
     def __set__(self, obj: I2CDeviceDriver, value: int) -> None:
         value <<= self.lowest_bit  # shift the value over to the right spot
         with obj.i2c_device as i2c:
-            i2c.write_then_readinto(self.buffer, self.buffer, out_end=1, in_start=1)
+            i2c.readfrom_mem_into(self.register_address, self.buffer)
             reg = 0
-            order = range(len(self.buffer) - 1, 0, -1)
-            if not self.lsb_first:
-                order = range(1, len(self.buffer))
+            order = range(len(self.buffer) - 1, -1, -1)
             for i in order:
                 reg = (reg << 8) | self.buffer[i]
-            # print("old reg: ", hex(reg))
+            print("old reg: ", hex(reg))
             reg &= ~self.bit_mask  # mask off the bits we're about to change
             reg |= value  # then or in our new value
-            # print("new reg: ", hex(reg))
+            print("new reg: ", hex(reg))
             for i in reversed(order):
                 self.buffer[i] = reg & 0xFF
                 reg >>= 8
-            i2c.write(self.buffer)
+            i2c.writeto_mem_into(self.register_address, self.buffer)
 
 
 class ROBits(RWBits):

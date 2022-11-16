@@ -8,7 +8,7 @@ pushd "${build_dir}/microPython/project/micropython/ports/esp32"
 if [ ! -f "${PORT}" ]; then
   PORT=${PORT:-${1:-/dev/ttyUSB0}}
   if [ ! -f "${PORT}" ]; then
-    PORT=$(ls -1 /dev/ttyACM*)
+    PORT=$(ls -1 /dev/ttyACM* | head -n 1)
   fi
 fi
 BOARD=${BOARD:-${2:-"MOTOC3"}}
