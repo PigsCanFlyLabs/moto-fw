@@ -86,7 +86,9 @@ async def log_breaklight():
       await uasyncio.sleep(0.01)
 
 async def main():
+   c = 0
    while True:
+      c = c + 1
       await uasyncio.sleep(0.5)
       log_file.write(f"g:{accel.gyro}")
       log_file.write(f"a:{accel.acceleration}")
