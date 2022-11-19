@@ -36,7 +36,7 @@ class UARTBluetooth():
         print("Prepairing to advertise.")
         self.advertise()
         print("Ok!")
-        self.sends_logs_ref = self.send_logs
+        self._sends_logs_ref = self.send_logs
 
     def send_logs(self):
         existing_files = os.listdir("farts")
