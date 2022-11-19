@@ -22,6 +22,9 @@ print("Sleeeeeeeping some more.")
 time.sleep(1)
 print("Sleeeeeeeping some more.")
 
+# TODO: Calibration file etc.
+
+
 if "farts" not in os.listdir():
    os.mkdir("farts")
 
@@ -31,8 +34,12 @@ if len(existing_file_ids) == 0:
     file_id = 0
 else:
     file_id = existing_file_ids[-1] + 1
- 
-log_file = open(f"farts/{file_id}", "w")
+
+log_file = None
+if (file_id < 10):
+   log_file = open(f"farts/{file_id}", "w")
+else:
+   print("Skipping logging we already have 10 log files.")
 
 print(f"Using file id {file_id}")
 
@@ -90,8 +97,10 @@ async def main():
    while True:
       c = c + 1
       await uasyncio.sleep(0.5)
-      log_file.write(f"g:{accel.gyro}")
-      log_file.write(f"a:{accel.acceleration}")
+      # Only log the first 10k times
+      if (c < 10000 and log_file is not None):
+         log_file.write(f"g:{accel.gyro}")
+         log_file.write(f"a:{accel.acceleration}")
       if c % 10 == 0:
          print(f"g:{accel.gyro}")
          print(f"a:{accel.acceleration}")

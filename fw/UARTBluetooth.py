@@ -37,6 +37,7 @@ class UARTBluetooth():
         self.advertise()
         print("Ok!")
         self._send_logs_ref = self.send_logs
+        self._clear_calib_ref = self.clear_calib
 
     def send_logs(self, *args):
         """Send the logs. Ignores *args but present because schedule
@@ -47,9 +48,14 @@ class UARTBluetooth():
             full_filename = f"farts/{file_name}"
             with open(full_filename, "r") as log_file:
                 for line in log_file.readlines():
-                    self.send(line)
+                    self.send(memoryview(line))
+                    self.send("\n")
             os.unlink(full_filename)
-            
+
+    def clear_calib(self, *args):
+        """Clear calibrartion."""
+        import os
+        os.unlink("calib")
             
 
     def enable(self):
@@ -76,7 +82,12 @@ class UARTBluetooth():
             self.connected = True
             conn_handle, _, _ = data
             self.conn_handle = conn_handle
-            micropython.schedule(self._send_logs_ref, [])
+        elif event == 3: # _IRQ_GATTS_WRITE
+            buffer = self.ble.gatts_read(self.rx)
+            if buffer[0] == 'L':
+                micropython.schedule(self._send_logs_ref, [])
+            elif buffer[0] == 'R':
+                micropython.schedule(self._clear_calib, [])
 
 
     def register(self):
@@ -113,6 +124,7 @@ class UARTBluetooth():
             print("Done.")
         except Exception as e:
             print(f"Failed to send {data} to UART BTLE - {e}")
+            print(f"Error was {e}")
             # TODO: Better exception handling?
 
     def advertise(self):
