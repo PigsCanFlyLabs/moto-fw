@@ -85,9 +85,7 @@ cp -af "${BOARD_DIR}/"* ./boards || echo "already copied"
 make submodules &> submod
 # make BOARD=GENERIC &> base
 make -j36 BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py" clean
-make V=2 -j36 BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py"
-# make BOARD=${BOARD:-MOTOC3}
-# USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake"
+make V=2 -j36 BOARD=${BOARD:-MOTOC3} FROZEN_MANIFEST="${SCRIPT_DIR}/fw/manifest.py" USER_C_MODULES="${SCRIPT_DIR}/modules/micropython.cmake"
 pwd
 popd
 

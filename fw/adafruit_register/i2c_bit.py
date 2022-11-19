@@ -59,6 +59,7 @@ class RWBit:
                 self.buffer[self.byte] |= self.bit_mask
             else:
                 self.buffer[self.byte] &= ~self.bit_mask
+            print(f"Value to set is {self.buffer}")
             i2c.writeto_mem_into(self.register_address, self.buffer)
 
 

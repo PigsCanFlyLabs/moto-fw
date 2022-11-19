@@ -6,6 +6,7 @@ from machine import Pin
 from magici2c import MagicI2C
 import uasyncio
 import os
+from UARTBluetooth import UARTBluetooth
 
 
 micropython.alloc_emergency_exception_buf(200)
@@ -32,6 +33,8 @@ else:
     file_id = existing_file_ids[-1] + 1
  
 log_file = open(f"farts/{file_id}", "w")
+
+print(f"Using file id {file_id}")
 
 light_off = 0
 light_on = 0
@@ -83,18 +86,15 @@ async def log_breaklight():
       await uasyncio.sleep(0.01)
 
 async def main():
-   c = 0
    while True:
-      await uasyncio.sleep(0.05)
+      await uasyncio.sleep(0.5)
       log_file.write(f"g:{accel.gyro}")
       log_file.write(f"a:{accel.acceleration}")
-      c = c + 1
-      if (c > 1200):
-         print("Setting pin hi!")
-         breaklight_trigger_pin.on()
-      if (c > 1400):
-         breaklight_trigger_pin.off()
-         c = 0
+      if c % 10 == 0:
+         print(f"g:{accel.gyro}")
+         print(f"a:{accel.acceleration}")
 
-# uasyncio.run(main())
+UARTBluetooth("PCF GB")
 
+# Kick off the main loop
+uasyncio.run(main())

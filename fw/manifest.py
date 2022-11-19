@@ -4,6 +4,7 @@ include("$(BOARD_DIR)/../manifest.py")
 freeze(".",
        ("boot.py",
         "magici2c.py",
+        "UARTBluetooth.py",
        ),
 )
 package("lsm")
