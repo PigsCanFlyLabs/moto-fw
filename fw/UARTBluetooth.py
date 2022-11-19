@@ -38,7 +38,9 @@ class UARTBluetooth():
         print("Ok!")
         self._send_logs_ref = self.send_logs
 
-    def send_logs(self):
+    def send_logs(self, *args):
+        """Send the logs. Ignores *args but present because schedule
+        requires some args."""
         existing_files = os.listdir("farts")
         for file_name in existing_files:
             full_filename = f"farts/{file_name}"
