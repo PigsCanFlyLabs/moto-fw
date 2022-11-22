@@ -7,25 +7,111 @@ from magici2c import MagicI2C
 import uasyncio
 import os
 from UARTBluetooth import UARTBluetooth
+import ustruct
 
 
 micropython.alloc_emergency_exception_buf(200)
 print("Allocated buffer for ISR failure.")
-time.sleep(1)
-print("Waiting to allow debugger to attach....")
-time.sleep(1)
-print("Continuing pandas :D")
 
-time.sleep(1)
-print("Sleeeeeeeping some more.")
+print("Setting up accelerometer.")
+i2c = MagicI2C(sda=Pin(4), scl=Pin(5))
+devices = []
 
-time.sleep(1)
-print("Sleeeeeeeping some more.")
+while len(devices) < 1:
+   devices = i2c.scan()
+   time.sleep(1)
+   print(f"kk!: {devices}")
 
-# TODO: Calibration file etc.
+device_id = devices[0]
+if 107 in devices:
+   device_id = 107
+
+# Note: sometimes we also have a DS33TRC but besides the ped its the
+# same so w/e, we just YOLO on the chip ids.
+accel = LSM6DS3TRC(i2c, device_id)
+
+print("Setting up callibration/logging.")
+files = os.listdir()
 
 
-if "farts" not in os.listdir():
+# 1 int 12 floats
+# first int -- version
+# first 3 -- accel startup val
+# second 3 -- gyro startup val
+# third 3 -- inital accel val
+# fourth 3 -- inital gyro val
+power_on_gyro = accel.gyro
+# At (first) power on the accelerometer gives us a good idea of the direction
+# of gravity (since we are not moving yet).
+power_on_accel = accel.acceleration
+initial_min_ms_delta = 4
+new_accel = []
+new_gyro = []
+
+calib_struct = "iffffffffffff"
+calib_version = 1
+rlen = ustruct.calcsize(calib_struct)
+calib_buf = bytearray(rlen)
+calibration_data = None
+
+def abs(x):
+   if (x < 0):
+      return -x
+   return x
+
+def do_calib():
+   # Wait for inital acceleration
+   # See URL:http://dx.doi.org/10.19044/esj.2018.v14n9p372
+   delta = 0
+   new_accel = accel.acceleration
+   new_gyro = accel.gyro
+   # Ignore the one axis that is mostly gravity
+   max_v = 0
+   probably_gravity_axis = 0
+   for i in range(0, 3):
+      if abs(power_on_accel[i]) > abs(max_v):
+         probably_gravity_axis = i
+         max_v = power_on_accel[i]
+   axis = list(range(0, 3)).remove(probably_gravity_axis)
+   while (delta < initial_min_ms_delta):
+      new_accel = accel.acceleration
+      new_gyro = accel.gyro
+      delta = 0
+      for i in axis:
+         delta += abs(new_accel[i] - power_on_accel[i])
+      print(f"Current delta is {delta} with {new_accel}")
+               
+   calibration_data = [calib_version] 
+   calibration_data.extend(power_on_accel)
+   calibration_data.extend(power_on_gyro)
+   calibration_data.extend(new_accel)
+   calibration_data.extend(new_gyro)
+   with open("calib", "wb") as f:
+      ustruct.pack_into(calib_struct, calib_buf, 0, *calibration_data)
+
+def load_calib():
+   with open("calib", "rb") as f:
+      f.readint(calib_buf)
+      ustruct.unpack_from(calib_struct, calib_buf)
+   # If we have a different version redocollaboration
+   if calib_struct[0] != calib_version:
+      do_calib()
+   else:
+      power_on_accel = calib_struct[1:4]
+      power_on_gyro = calib_struct[4:7]
+      new_accel = calib_struct[7:10]
+      new_gyro = calib_struct[10:13]
+   
+if "calib" not in files:
+   do_calib()
+else:
+   try:
+      load_calib()
+   except:
+      do_calib()
+
+
+if "farts" not in files:
    os.mkdir("farts")
 
 existing_file_ids = list(map(lambda x: int(x), os.listdir("farts")))
@@ -46,41 +132,30 @@ print(f"Using file id {file_id}")
 light_off = 0
 light_on = 0
 
-def break_light_changed(pin):
+def brakelight_changed(pin):
     """
-    Detect when the break light is triggered (on or off)
+    Detect when the brake light is triggered (on or off)
     """
+    global light_off
+    global light_on
     if pin.value() == 0:
         light_off = 1
     else:
         light_on = 1
 
 
-print("Setting up hardware.")
-breaklight_trigger_pin = Pin(0)
-breaklight_detect_pin = Pin(1)
-breaklight_detect_pin.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=break_light_changed)
-i2c = MagicI2C(sda=Pin(4), scl=Pin(5))
-devices = []
-
-while len(devices) < 1:
-   devices = i2c.scan()
-   time.sleep(1)
-   print(f"kk!: {devices}")
-
-device_id = devices[0]
-if 107 in devices:
-   device_id = 107
-
-# Note: sometimes we also have a DS33TRC but besides the ped its the
-# same so w/e, we just YOLO on the chip ids.
-accel = LSM6DS3TRC(i2c, device_id)
+print("Setting up brakelight hardware.")
+brakelight_trigger_pin = Pin(0)
+brakelight_detect_pin = Pin(1)
+brakelight_detect_pin.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=brakelight_changed)
 
 
-async def log_breaklight():
+async def log_brakelight():
    """
-   Log Breaklight status
+   Log Brakelight status
    """
+   global light_off
+   global light_on
    while True:
       if light_off > 0:
          print("Rise!")
@@ -92,11 +167,12 @@ async def log_breaklight():
          log_file.write("fall")
       await uasyncio.sleep(0.01)
 
-async def main():
+
+async def log_accel():
    c = 0
    while True:
       c = c + 1
-      await uasyncio.sleep(0.5)
+      await uasyncio.sleep(0.25)
       # Only log the first 10k times
       if (c < 10000 and log_file is not None):
          log_file.write(f"g:{accel.gyro}")
@@ -104,6 +180,17 @@ async def main():
       if c % 10 == 0:
          print(f"g:{accel.gyro}")
          print(f"a:{accel.acceleration}")
+
+async def trigger_light():
+   while True:
+      c = accel.acceleration
+
+
+async def main():
+   uasyncio.create_task(log_brakelight())
+   uasyncio.create_task(log_accel())
+   while True:
+      await uasyncio.sleep(1)
 
 UARTBluetooth("PCF GB")
 
