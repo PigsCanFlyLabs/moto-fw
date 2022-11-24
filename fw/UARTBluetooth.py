@@ -1,6 +1,5 @@
 import micropython
 import uasyncio
-import time
 
 _BMS_MTU = 128
 
@@ -38,21 +37,28 @@ class UARTBluetooth():
         self._clear_calib_ref = self.clear_calib
         self._handle_command_ref = self.handle_command
 
+
     def send_logs(self, *args):
         """Send the logs. Ignores *args but present because schedule
         requires some args."""
+        uasyncio.create_task(self.send_logs_async())
+
+
+    async def send_logs_async(self):
         print("Sending logs!")
         import os
         existing_files = os.listdir("farts")
         for file_name in existing_files:
             print(f"Sending {file_name}")
-            self.send(f"Log:{file_name}\n")
+            await self.send_async(f"Log:{file_name}\n")
             full_filename = f"farts/{file_name}"
             with open(full_filename, "r") as log_file:
                 for line in log_file:
                     if line != "\n":
                         print(f"Sending line {line}")
-                        self.send(memoryview(line))
+                        await self.send_async(memoryview(line))
+                        # Yield
+                        await uasyncio.sleep(0)
             os.unlink(full_filename)
 
     def clear_calib(self, *args):
@@ -123,7 +129,7 @@ class UARTBluetooth():
         rxbuf = 500
         self.ble.gatts_set_buffer(self.rx, rxbuf, True)
 
-    def send(self, data, r=0):
+    def send(self, data):
         try:
             print(f"Preparing to send {data} to UART BTLE.")
             # Send all of the bytes
@@ -135,11 +141,34 @@ class UARTBluetooth():
         except Exception as e:
             print(f"Failed to send {data} to UART BTLE - {e}")
             print(f"Error was {e}")
+
+    async def send_async(self, data, r=0):
+        """
+        Send data async with retries.
+        """
+        try:
+            print(f"Preparing to send {data} to UART BTLE.")
+            # Send all of the bytes
+            idx = 0
+            while (idx < len(data)):
+                self.ble.gatts_notify(self.conn_handle, self.tx, data[idx:idx + self.mtu])
+                idx = idx + self.mtu
+            print("Done.")
+        except Exception as e:
+            if (r > 2):
+                # Only bother logging on more than 2 retries.
+                print(f"Failed to send {data} to UART BTLE - {e}")
+                print(f"Error was {e}")
             # Retry up to five times, the BLE buffer can get full quickly.
             if (r < 5):
                 r = r + 1
-                time.sleep(r * r)
-                self.send(data[idx:], r=r)
+                # From the discussion in https://forum.micropython.org/viewtopic.php?t=8844 we can probably
+                # pick a smaller initial back-off
+                await uasyncio.sleep(0.01 * r * r)
+                await self.send_async(data[idx:], r=r)
+            else:
+                print(f"We tried to send {data} {r} times but still failed - {e}")
+                raise e
 
     def advertise(self):
         print(f"Advertising {self.name}")

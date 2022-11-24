@@ -186,10 +186,11 @@ async def log_accel():
       if (c < 10000 and log_file is not None):
          log_file.write(f"g:{accel.gyro}")
          log_file.write(f"a:{accel.acceleration}")
+         if c % 100 == 0:
+            log_file.flush()
       if c % 10 == 0:
          print(f"g:{accel.gyro}")
          print(f"a:{accel.acceleration}")
-         log_file.flush()
 
 async def trigger_light():
    while True:
