@@ -1,5 +1,6 @@
 import micropython
 import uasyncio
+import time
 
 _BMS_MTU = 128
 
@@ -26,9 +27,6 @@ class UARTBluetooth():
         self.enable()
         self.target_length = 0
         self.mtu = 10
-        self.msg_buffer = bytearray(1000)
-        self.mv_msg_buffer = memoryview(self.msg_buffer)
-        self.msg_buffer_idx = 0
         # Setup a call-back for ble msgs
         self.ble.irq(self.ble_irq)
         print("Prepairing to register")
@@ -38,18 +36,23 @@ class UARTBluetooth():
         print("Ok!")
         self._send_logs_ref = self.send_logs
         self._clear_calib_ref = self.clear_calib
+        self._handle_command_ref = self.handle_command
 
     def send_logs(self, *args):
         """Send the logs. Ignores *args but present because schedule
         requires some args."""
+        print("Sending logs!")
         import os
         existing_files = os.listdir("farts")
         for file_name in existing_files:
+            print(f"Sending {file_name}")
+            self.send(f"Log:{file_name}\n")
             full_filename = f"farts/{file_name}"
             with open(full_filename, "r") as log_file:
-                for line in log_file.readlines():
-                    self.send(memoryview(line))
-                    self.send("\n")
+                for line in log_file:
+                    if line != "\n":
+                        print(f"Sending line {line}")
+                        self.send(memoryview(line))
             os.unlink(full_filename)
 
     def clear_calib(self, *args):
@@ -69,6 +72,16 @@ class UARTBluetooth():
         self.ble.active(False)
         self.ble.config(gap_name=self.name)
 
+    def handle_command(self, buffer):
+        command = buffer.decode().rstrip('\n')
+        if command == "L":
+            micropython.schedule(self._send_logs_ref, [])
+        elif command == "C":
+            micropython.schedule(self._clear_calib_ref, [])
+        else:
+            print(f"Unkown command {command} form {buffer}")
+            self.send("Invalid command.")
+
     def ble_irq(self, event: int, data):
         """Handle BlueTooth Event."""
         print(f"Handling {event} {data}")
@@ -84,10 +97,9 @@ class UARTBluetooth():
             self.conn_handle = conn_handle
         elif event == 3: # _IRQ_GATTS_WRITE
             buffer = self.ble.gatts_read(self.rx)
-            if buffer[0] == 'L':
-                micropython.schedule(self._send_logs_ref, [])
-            elif buffer[0] == 'R':
-                micropython.schedule(self._clear_calib, [])
+            print("Got buffer")
+            print(buffer)
+            micropython.schedule(self._handle_command_ref, buffer)
 
 
     def register(self):
@@ -101,7 +113,7 @@ class UARTBluetooth():
 
         BLE_NUS = bluetooth.UUID(NUS_UUID)
         BLE_RX = (bluetooth.UUID(RX_UUID), bluetooth.FLAG_WRITE)
-        BLE_TX = (bluetooth.UUID(TX_UUID), bluetooth.FLAG_READ | bluetooth.FLAG_NOTIFY)
+        BLE_TX = (bluetooth.UUID(TX_UUID), bluetooth.FLAG_NOTIFY)
 
         BLE_UART = (BLE_NUS, (BLE_TX, BLE_RX,))
         SERVICES = (BLE_UART, )
@@ -111,11 +123,9 @@ class UARTBluetooth():
         rxbuf = 500
         self.ble.gatts_set_buffer(self.rx, rxbuf, True)
 
-    def send(self, data):
+    def send(self, data, r=0):
         try:
             print(f"Preparing to send {data} to UART BTLE.")
-            # Send how many bytes were going to have, we always use 4 bytes to send this.
-            self.ble.gatts_notify(self.conn_handle, self.tx, int.to_bytes(len(data), 4, 'little'))
             # Send all of the bytes
             idx = 0
             while (idx < len(data)):
@@ -125,7 +135,11 @@ class UARTBluetooth():
         except Exception as e:
             print(f"Failed to send {data} to UART BTLE - {e}")
             print(f"Error was {e}")
-            # TODO: Better exception handling?
+            # Retry up to five times, the BLE buffer can get full quickly.
+            if (r < 5):
+                r = r + 1
+                time.sleep(r * r)
+                self.send(data[idx:], r=r)
 
     def advertise(self):
         print(f"Advertising {self.name}")

@@ -19,7 +19,7 @@ devices = []
 
 while len(devices) < 1:
    devices = i2c.scan()
-   time.sleep(1)
+   #time.sleep(1)
    print(f"kk!: {devices}")
 
 device_id = devices[0]
@@ -72,7 +72,9 @@ def do_calib():
       if abs(power_on_accel[i]) > abs(max_v):
          probably_gravity_axis = i
          max_v = power_on_accel[i]
-   axis = list(range(0, 3)).remove(probably_gravity_axis)
+   axis = list(range(0, 3))
+   # Note this is mutating and it returns a nonetype.
+   axis.remove(probably_gravity_axis)
    while (delta < initial_min_ms_delta):
       new_accel = accel.acceleration
       new_gyro = accel.gyro
@@ -88,13 +90,16 @@ def do_calib():
    calibration_data.extend(new_gyro)
    with open("calib", "wb") as f:
       ustruct.pack_into(calib_struct, calib_buf, 0, *calibration_data)
+      f.write(calib_buf)
 
 def load_calib():
    with open("calib", "rb") as f:
-      f.readint(calib_buf)
+      f.readinto(calib_buf)
       ustruct.unpack_from(calib_struct, calib_buf)
    # If we have a different version redocollaboration
-   if calib_struct[0] != calib_version:
+   if calib_buf[0] != calib_version:
+      print(f"Calibration version mismatch (e.g. {calib_struct[0]} != {calib_version})")
+      #time.sleep(1)
       do_calib()
    else:
       power_on_accel = calib_struct[1:4]
@@ -103,11 +108,15 @@ def load_calib():
       new_gyro = calib_struct[10:13]
    
 if "calib" not in files:
+   print("No calibration found.")
+   #time.sleep(1)
    do_calib()
 else:
    try:
       load_calib()
-   except:
+   except Exception as e:
+      print(f"Error {e} trying to load calibration?")
+      #time.sleep(1)
       do_calib()
 
 
@@ -172,7 +181,7 @@ async def log_accel():
    c = 0
    while True:
       c = c + 1
-      await uasyncio.sleep(0.25)
+      await uasyncio.sleep(0.20)
       # Only log the first 10k times
       if (c < 10000 and log_file is not None):
          log_file.write(f"g:{accel.gyro}")
@@ -180,6 +189,7 @@ async def log_accel():
       if c % 10 == 0:
          print(f"g:{accel.gyro}")
          print(f"a:{accel.acceleration}")
+         log_file.flush()
 
 async def trigger_light():
    while True:
